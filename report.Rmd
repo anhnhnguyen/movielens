@@ -1,0 +1,96 @@
+---
+title: "Report on MovieLens Project"
+author: "Anh N.H. Nguyen"
+date: "10/19/2019"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+This is a report on the MovieLens project. The data was obtained from [the GroupLens research lab](https://grouplens.org/datasets/movielens/latest/).
+
+We are going to use the following library:
+
+```{r loading-libs, message=FALSE}
+library(tidyverse)
+library(caret)
+```
+
+## MovieLens 10M dataset and edex/validation partition
+
+```{r dataset, echo=FALSE}
+dl <- tempfile()
+download.file("http://files.grouplens.org/datasets/movielens/ml-10m.zip", dl)
+
+ratings <- read.table(text = gsub("::", "\t", readLines(unzip(dl, "ml-10M100K/ratings.dat"))),
+                      col.names = c("userId", "movieId", "rating", "timestamp"))
+
+movies <- str_split_fixed(readLines(unzip(dl, "ml-10M100K/movies.dat")), "\\::", 3)
+colnames(movies) <- c("movieId", "title", "genres")
+movies <- as.data.frame(movies) %>% mutate(movieId = as.numeric(levels(movieId))[movieId],
+                                           title = as.character(title),
+                                           genres = as.character(genres))
+
+movielens <- left_join(ratings, movies, by = "movieId")
+
+set.seed(1, sample.kind = "Rounding")
+test_index <- createDataPartition(y = movielens$rating, times = 1, p = 0.1, list = FALSE)
+edx <- movielens[-test_index,]
+temp <- movielens[test_index,]
+
+validation <- temp %>% 
+  semi_join(edx, by = "movieId") %>%
+  semi_join(edx, by = "userId")
+
+removed <- anti_join(temp, validation)
+edx <- rbind(edx, removed)
+
+rm(dl, ratings, movies, test_index, temp, movielens, removed)
+```
+
+## Overview
+
+edX dataset includes 6 features of 9,000,055 observations. Validation dataset has similar features of 999,999 observations. 
+
+```{r overview, echo=FALSE}
+glimpse(edx)
+glimpse(validation)
+summary(edx)
+```
+
+## Ratings General
+
+No user gives 0 as a rating. Half-star ratings are less common than whole-star ratings. Top 5 ratings are: 4, 3, 5, 3.5 and 2. 
+
+```{r ratings-general, echo=FALSE}
+edx %>%
+  group_by(rating) %>%
+  summarize(count = n()) %>%
+  ggplot(aes(x = rating, y = count)) +
+  geom_line()
+```
+
+## Ratings by Genres
+
+Top 5 rated genres are: Drama, Comedy, Action, Thriller, and Adventure
+
+```{r ratings-genres, echo=FALSE}
+edx %>% separate_rows(genres, sep = "\\|") %>%
+  group_by(genres) %>%
+  summarize(count = n()) %>%
+  arrange(desc(count))
+```
+
+## Movies Rankings
+
+Top rated movies are: Pulp Fiction, Forrest Gump, Silence of the Lambs, Jurassic Park, etc. 
+
+```{r movies, echo=FALSE}
+edx %>% group_by(movieId, title) %>%
+  summarize(count = n()) %>%
+  arrange(desc(count))
+```
